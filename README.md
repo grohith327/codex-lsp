@@ -26,10 +26,8 @@ cargo build --release
 # binary at target/release/codex-lsp
 ```
 
-> This package reuses codex's `file-search` crate via a path dependency to a
-> sibling checkout (`../codex/codex-rs/file-search`). Keep the `codex` repo
-> beside this one, or switch the dependency in `Cargo.toml` to a `git`/vendored
-> source.
+> This package vendors codex's `file-search` crate under `file-search/` and uses
+> it through a local path dependency in `Cargo.toml`.
 
 ## Where prompts & skills come from
 
@@ -59,4 +57,6 @@ editor ──stdio JSON-RPC──> codex-lsp
         └─ reuses codex-file-search (path dep) for @ search
 ```
 
-Run `cargo test` for the ported tokenizer/fuzzy/position regression suite.
+Run `cargo test` for the LSP regression suite. Run
+`cargo test --manifest-path file-search/Cargo.toml` for the vendored
+file-search crate tests.
