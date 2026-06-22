@@ -1,0 +1,31 @@
+[package]
+name = "codex-lsp"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "codex_lsp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "codex-lsp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.102"
+codex-file-search = { version = "0.0.0", path = "../codex/codex-rs/file-search" }
+dashmap = "6.2.1"
+ropey = "1.6.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+strum = { version = "0.28.0", features = ["derive"] }
+strum_macros = "0.28.0"
+tokio = { version = "1.52.3", features = ["full"] }
+toml = "0.8"
+tower-lsp-server = "0.23.0"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+tempfile = "3.27.0"
