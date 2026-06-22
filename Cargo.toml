@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.102"
-codex-file-search = { version = "0.0.0", path = "../codex/codex-rs/file-search" }
+codex-file-search = { version = "0.0.0", path = "file-search" }
 dashmap = "6.2.1"
 ropey = "1.6.1"
 serde = { version = "1.0.228", features = ["derive"] }

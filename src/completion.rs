@@ -204,16 +204,17 @@ async fn file_items(
     {
         let range = span_to_range(rope, span.content_start, span.end);
         for m in matches {
+            let path = m.path.to_string_lossy().into_owned();
             items.push(CompletionItem {
-                label: m.path.clone(),
+                label: path.clone(),
                 kind: Some(CompletionItemKind::FILE),
-                filter_text: Some(m.path.clone()),
+                filter_text: Some(path.clone()),
                 // Higher nucleo score = better, so invert for ascending sort.
                 // Prefix "2" so files sort below skills and prompts.
                 sort_text: Some(format!("2{:010}", u32::MAX - m.score)),
                 text_edit: Some(CompletionTextEdit::Edit(TextEdit {
                     range,
-                    new_text: maybe_quote(&m.path),
+                    new_text: maybe_quote(&path),
                 })),
                 ..Default::default()
             });
@@ -260,7 +261,18 @@ async fn run_file_search(
     let exclude: Vec<String> = EXCLUDE_GLOBS.iter().map(|s| s.to_string()).collect();
     tokio::task::spawn_blocking(move || {
         let cancel = Arc::new(AtomicBool::new(false));
-        codex_file_search::run(&query, limit, &root, exclude, threads, cancel, false, true)
+        codex_file_search::run(
+            &query,
+            vec![root],
+            codex_file_search::FileSearchOptions {
+                limit,
+                exclude,
+                threads,
+                compute_indices: false,
+                respect_gitignore: true,
+            },
+            Some(cancel),
+        )
     })
     .await
     .ok()?
