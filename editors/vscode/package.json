@@ -1,0 +1,56 @@
+{
+  "name": "codex-lsp-vscode",
+  "displayName": "Codex LSP",
+  "description": "VS Code language support for .codex prompt files backed by codex-lsp.",
+  "version": "0.0.1",
+  "publisher": "codex-lsp",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:codex"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "codex",
+        "aliases": [
+          "Codex"
+        ],
+        "extensions": [
+          ".codex"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "Codex LSP",
+      "properties": {
+        "codexLsp.serverPath": {
+          "type": "string",
+          "default": "codex-lsp",
+          "description": "Command or absolute path used to launch the codex-lsp server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "vscode-languageclient": "9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.1",
+    "@types/vscode": "1.85.0",
+    "typescript": "5.4.5"
+  }
+}
