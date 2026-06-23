@@ -16,8 +16,6 @@ validation.
 - **`/command` completion** — built-in slash commands and custom prompts
   (`/prompts:<name>`), with descriptions.
 - **`$skill` completion** — skills discovered from `SKILL.md` files.
-- **Diagnostics** — unknown commands (error), broken `@file` paths (warning),
-  unknown skills (warning).
 
 ## Build
 
@@ -26,37 +24,76 @@ cargo build --release
 # binary at target/release/codex-lsp
 ```
 
-> This package vendors codex's `file-search` crate under `file-search/` and uses
-> it through a local path dependency in `Cargo.toml`.
+## LSP Configuration
 
-## Where prompts & skills come from
+Add `codex-lsp` to your favourite code editor by following the setup below.
+The server speaks LSP over stdio, so your editor needs to launch the
+`codex-lsp` binary for `*.codex` files.
 
-- Custom prompts: `$CODEX_HOME/prompts/*.md` (`$CODEX_HOME` defaults to `~/.codex`).
-- Skills: `SKILL.md` files under the editor's workspace roots and
-  `$CODEX_HOME/skills`.
+### Add the binary to your PATH
 
-Loaded once at `initialize`.
+Build the release binary:
 
-## Editor setup
-
-See [`editors/`](editors/) for VS Code, Neovim, and Helix snippets. The
-universal contract: launch `codex-lsp` over stdio and map `*.codex` to language
-id `codex`.
-
-## Architecture
-
-```
-editor ──stdio JSON-RPC──> codex-lsp
-  backend.rs   LanguageServer impl (initialize, did_*, completion)
-  document.rs  Rope store + UTF-16<->byte position conversion
-  tokens.rs    byte-offset tokenizer (ported from codex tui chat_composer)
-  fuzzy.rs     subsequence fuzzy matcher (ported from codex common)
-  slash_command.rs  built-in command catalog (ported from codex tui)
-  registry.rs  prompt/skill loaders + cache
-  completion.rs / diagnostics.rs
-        └─ reuses codex-file-search (path dep) for @ search
+```sh
+cargo build --release
 ```
 
-Run `cargo test` for the LSP regression suite. Run
-`cargo test --manifest-path file-search/Cargo.toml` for the vendored
-file-search crate tests.
+Create a stable link somewhere on your `PATH`:
+
+```sh
+mkdir -p ~/.local/bin
+ln -sf "$PWD/target/release/codex-lsp" ~/.local/bin/codex-lsp
+```
+
+If `~/.local/bin` is not already on your `PATH`, add it to your shell config:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Verify that your shell can find the server:
+
+```sh
+which codex-lsp
+```
+
+You can also skip the link and use the absolute path to the binary in your
+editor config:
+
+```sh
+/path/to/codex-lsp/target/release/codex-lsp
+```
+
+### Neovim
+
+For Neovim 0.11+, add this to your Neovim config, for example in
+`~/.config/nvim/init.lua`:
+
+```lua
+-- Neovim 0.11+ : attach codex-lsp to *.codex files.
+-- Ensure the `codex-lsp` binary is on your PATH (or use an absolute path in cmd).
+
+vim.filetype.add({ extension = { codex = "codex" } })
+
+vim.lsp.config["codex"] = {
+  cmd = { "codex-lsp" },
+  filetypes = { "codex" },
+  root_markers = { ".git" },
+}
+
+vim.lsp.enable("codex")
+```
+
+If you did not create the `~/.local/bin/codex-lsp` link, point `cmd` directly at
+the release binary:
+
+```lua
+vim.lsp.config["codex"] = {
+  cmd = { "/path/to/codex-lsp/target/release/codex-lsp" },
+  filetypes = { "codex" },
+  root_markers = { ".git" },
+}
+```
+
+Open a `*.codex` file and run `:LspInfo` to confirm that `codex-lsp` is
+attached.
