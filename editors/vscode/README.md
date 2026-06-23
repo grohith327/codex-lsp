@@ -2,32 +2,51 @@
 
 This extension registers `.codex` files and launches `codex-lsp` over stdio.
 
-## Local development
+## Install for regular use
 
-Build the Rust server first:
+Build the Rust server and put it somewhere stable:
 
 ```sh
-cd /Users/rohith/Documents/codex-lsp
+cd ../..
 cargo build --release
 mkdir -p ~/.local/bin
-ln -sf /Users/rohith/Documents/codex-lsp/target/release/codex-lsp ~/.local/bin/codex-lsp
+ln -sf "$PWD/target/release/codex-lsp" ~/.local/bin/codex-lsp
 ```
 
-Install and compile the extension:
+Package and install the VS Code extension:
 
 ```sh
-cd /Users/rohith/Documents/codex-lsp/editors/vscode
+cd editors/vscode
 npm install
 npm run compile
+npm install -g @vscode/vsce
+vsce package
+code --install-extension codex-lsp-vscode-0.0.1.vsix
 ```
 
-Open this folder in VS Code and press `F5` to start an Extension Development Host.
-Open a `.codex` file in that host and type `@`, `/`, or `$` to trigger completions.
+Restart VS Code. After that, opening any `.codex` file should automatically
+activate this extension and start `codex-lsp`.
 
-If the server is not on `PATH`, set `codexLsp.serverPath` to the absolute binary path:
+If completions do not appear, VS Code may not be inheriting your shell `PATH`.
+Set the server path globally in VS Code settings:
 
 ```json
 {
   "codexLsp.serverPath": "/Users/rohith/Documents/codex-lsp/target/release/codex-lsp"
 }
 ```
+
+Then reload VS Code and open a `.codex` file. Typing `@`, `/`, or `$` should
+trigger completions from the language server.
+
+## Local development
+
+For extension development, run:
+
+```sh
+npm install
+npm run compile
+code .
+```
+
+Press `F5` in VS Code to start an Extension Development Host.

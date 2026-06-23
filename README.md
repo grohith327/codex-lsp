@@ -30,6 +30,35 @@ Add `codex-lsp` to your favourite code editor by following the setup below.
 The server speaks LSP over stdio, so your editor needs to launch the
 `codex-lsp` binary for `*.codex` files.
 
+### VS Code
+
+The VS Code extension lives in `editors/vscode`. First make sure the
+`codex-lsp` binary is available by following the setup below, then package and
+install the VSIX:
+
+```sh
+cd editors/vscode
+npm install
+npm run compile
+npm install -g @vscode/vsce
+vsce package
+code --install-extension codex-lsp-vscode-0.0.1.vsix
+```
+
+Restart VS Code after installing the extension. Opening any `.codex` file should
+then start `codex-lsp` automatically.
+
+If VS Code cannot find the server because it was launched outside your shell,
+set `codexLsp.serverPath` to the absolute path of the release binary:
+
+```json
+{
+  "codexLsp.serverPath": "/path/to/codex-lsp/target/release/codex-lsp"
+}
+```
+
+See `editors/vscode/README.md` for the full VS Code workflow.
+
 ### Add the binary to your PATH
 
 Build the release binary:
