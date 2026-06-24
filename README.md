@@ -8,11 +8,11 @@ validation.
 
 ## Features (v1)
 
-- **`@` completion** — fuzzy file-path search (reuses codex's `file-search`
-  engine: ripgrep walker + nucleo matcher, respects `.gitignore`, excludes
-  `.git`). The `@` menu also surfaces codex "plugins" — **skills** (inserted as
-  `$name`) and **custom prompts** (inserted as `/prompts:name`) — mirroring the
-  codex composer.
+- **`@` completion** — fuzzy file-path search backed by the Rust `fff-search`
+  engine, with a warm per-root index, `.gitignore` awareness, and `.git`
+  internals excluded. The `@` menu also surfaces codex "plugins" — **skills**
+  (inserted as `$name`) and **custom prompts** (inserted as `/prompts:name`) —
+  mirroring the codex composer.
 - **`/command` completion** — built-in slash commands and custom prompts
   (`/prompts:<name>`), with descriptions.
 - **`$skill` completion** — skills discovered from `SKILL.md` files.

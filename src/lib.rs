@@ -8,6 +8,7 @@ pub mod backend;
 pub mod completion;
 pub mod diagnostics;
 pub mod document;
+pub mod file_search;
 pub mod fuzzy;
 pub mod registry;
 pub mod slash_command;

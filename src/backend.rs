@@ -11,6 +11,7 @@ use tower_lsp_server::ls_types::*;
 use crate::completion;
 use crate::diagnostics;
 use crate::document::DocumentStore;
+use crate::file_search::FffFileSearch;
 use crate::registry::Registry;
 
 pub struct Backend {
@@ -18,6 +19,7 @@ pub struct Backend {
     docs: DocumentStore,
     registry: Arc<RwLock<Registry>>,
     workspace_roots: Arc<RwLock<Vec<PathBuf>>>,
+    file_search: Arc<FffFileSearch>,
 }
 
 impl Backend {
@@ -27,6 +29,7 @@ impl Backend {
             docs: DocumentStore::new(),
             registry: Arc::new(RwLock::new(Registry::default())),
             workspace_roots: Arc::new(RwLock::new(Vec::new())),
+            file_search: Arc::new(FffFileSearch::default()),
         }
     }
 
@@ -140,7 +143,14 @@ impl LanguageServer for Backend {
         };
         let registry = self.registry.read().await.clone();
         let search_root = self.search_root(&uri).await;
-        Ok(completion::complete(&rope, pos, &registry, search_root.as_deref()).await)
+        Ok(completion::complete(
+            &rope,
+            pos,
+            &registry,
+            search_root.as_deref(),
+            &self.file_search,
+        )
+        .await)
     }
 }
 

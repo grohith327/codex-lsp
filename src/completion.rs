@@ -1,10 +1,6 @@
 //! Build LSP completion items for the token under the cursor.
 
-use std::num::NonZero;
 use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 
 use ropey::Rope;
 use tower_lsp_server::ls_types::CompletionItem;
@@ -18,6 +14,7 @@ use tower_lsp_server::ls_types::TextEdit;
 
 use crate::document::position_to_byte;
 use crate::document::span_to_range;
+use crate::file_search::FffFileSearch;
 use crate::fuzzy::fuzzy_match;
 use crate::registry::Registry;
 use crate::slash_command::PROMPTS_CMD_PREFIX;
@@ -27,11 +24,6 @@ use crate::tokens::TokenSpan;
 use crate::tokens::completion_context;
 
 const MAX_FILE_RESULTS: usize = 50;
-const SEARCH_THREADS: usize = 4;
-
-/// Globs excluded from `@` file search (passed to file-search, which negates
-/// them). `.git` internals are noise in a `.codex` prompt file.
-const EXCLUDE_GLOBS: &[&str] = &["**/.git/**", ".git/**"];
 
 /// Compute completions for `pos` in `rope`. `search_root` is where `@file`
 /// queries are resolved (the document's directory, ideally).
@@ -40,6 +32,7 @@ pub async fn complete(
     pos: Position,
     registry: &Registry,
     search_root: Option<&Path>,
+    file_search: &FffFileSearch,
 ) -> Option<CompletionResponse> {
     let text = rope.to_string();
     let cursor = position_to_byte(rope, pos)?;
@@ -58,7 +51,9 @@ pub async fn complete(
             let range = span_to_range(rope, span.content_start, span.end);
             skill_items(&span.query, registry, range)
         }
-        CompletionContext::File(span) => file_items(rope, &span, registry, search_root).await,
+        CompletionContext::File(span) => {
+            file_items(rope, &span, registry, search_root, file_search).await
+        }
     };
 
     Some(CompletionResponse::List(CompletionList {
@@ -150,6 +145,7 @@ async fn file_items(
     span: &TokenSpan,
     registry: &Registry,
     search_root: Option<&Path>,
+    file_search: &FffFileSearch,
 ) -> Vec<CompletionItem> {
     let mut items = Vec::new();
     let whole = span_to_range(rope, span.start, span.end);
@@ -200,8 +196,10 @@ async fn file_items(
     // File matches (skipped for an empty query or when no search root is known).
     if !span.query.is_empty()
         && let Some(root) = search_root.map(Path::to_path_buf)
-        && let Some(matches) = run_file_search(span.query.clone(), root).await
     {
+        let matches = file_search
+            .search(&root, &span.query, MAX_FILE_RESULTS)
+            .await;
         let range = span_to_range(rope, span.content_start, span.end);
         for m in matches {
             let path = m.path.to_string_lossy().into_owned();
@@ -209,9 +207,9 @@ async fn file_items(
                 label: path.clone(),
                 kind: Some(CompletionItemKind::FILE),
                 filter_text: Some(path.clone()),
-                // Higher nucleo score = better, so invert for ascending sort.
+                // Higher fff score = better, so negate for ascending sort.
                 // Prefix "2" so files sort below skills and prompts.
-                sort_text: Some(format!("2{:010}", u32::MAX - m.score)),
+                sort_text: Some(format!("2{}{}", sort_key(m.score.saturating_neg()), path)),
                 text_edit: Some(CompletionTextEdit::Edit(TextEdit {
                     range,
                     new_text: maybe_quote(&path),
@@ -252,34 +250,6 @@ fn skill_filter_text(skill: &crate::registry::Skill) -> String {
         .unwrap_or_else(|| skill.name.clone())
 }
 
-async fn run_file_search(
-    query: String,
-    root: PathBuf,
-) -> Option<Vec<codex_file_search::FileMatch>> {
-    let limit = NonZero::new(MAX_FILE_RESULTS)?;
-    let threads = NonZero::new(SEARCH_THREADS)?;
-    let exclude: Vec<String> = EXCLUDE_GLOBS.iter().map(|s| s.to_string()).collect();
-    tokio::task::spawn_blocking(move || {
-        let cancel = Arc::new(AtomicBool::new(false));
-        codex_file_search::run(
-            &query,
-            vec![root],
-            codex_file_search::FileSearchOptions {
-                limit,
-                exclude,
-                threads,
-                compute_indices: false,
-                respect_gitignore: true,
-            },
-            Some(cancel),
-        )
-    })
-    .await
-    .ok()?
-    .ok()
-    .map(|results| results.matches)
-}
-
 fn maybe_quote(path: &str) -> String {
     if path.chars().any(char::is_whitespace) && !path.contains('"') {
         format!("\"{path}\"")
@@ -297,6 +267,7 @@ fn sort_key(score: i32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file_search::FffFileSearch;
 
     fn reg() -> Registry {
         Registry {
@@ -315,7 +286,8 @@ mod tests {
     #[tokio::test]
     async fn command_completion_lists_builtins_and_prompts() {
         let rope = Rope::from_str("/mod");
-        let resp = complete(&rope, Position::new(0, 4), &reg(), None)
+        let search = FffFileSearch::default();
+        let resp = complete(&rope, Position::new(0, 4), &reg(), None, &search)
             .await
             .expect("response");
         let CompletionResponse::List(list) = resp else {
@@ -328,7 +300,8 @@ mod tests {
     #[tokio::test]
     async fn prompt_completion_via_prefix() {
         let rope = Rope::from_str("/prompts:dep");
-        let resp = complete(&rope, Position::new(0, 12), &reg(), None)
+        let search = FffFileSearch::default();
+        let resp = complete(&rope, Position::new(0, 12), &reg(), None, &search)
             .await
             .expect("response");
         let CompletionResponse::List(list) = resp else {
@@ -340,7 +313,8 @@ mod tests {
     #[tokio::test]
     async fn at_context_includes_prompts() {
         let rope = Rope::from_str("@dep");
-        let resp = complete(&rope, Position::new(0, 4), &reg(), None)
+        let search = FffFileSearch::default();
+        let resp = complete(&rope, Position::new(0, 4), &reg(), None, &search)
             .await
             .expect("response");
         let CompletionResponse::List(list) = resp else {
@@ -361,7 +335,8 @@ mod tests {
     async fn at_context_includes_skills() {
         // Typing `@rev` must surface the skill (codex's "plugin") as `$review`.
         let rope = Rope::from_str("@rev");
-        let resp = complete(&rope, Position::new(0, 4), &reg(), None)
+        let search = FffFileSearch::default();
+        let resp = complete(&rope, Position::new(0, 4), &reg(), None, &search)
             .await
             .expect("response");
         let CompletionResponse::List(list) = resp else {
@@ -386,9 +361,16 @@ mod tests {
         std::fs::write(tmp.path().join("config.txt"), "x").unwrap();
 
         let rope = Rope::from_str("@config");
-        let resp = complete(&rope, Position::new(0, 7), &reg(), Some(tmp.path()))
-            .await
-            .expect("response");
+        let search = FffFileSearch::default();
+        let resp = complete(
+            &rope,
+            Position::new(0, 7),
+            &reg(),
+            Some(tmp.path()),
+            &search,
+        )
+        .await
+        .expect("response");
         let CompletionResponse::List(list) = resp else {
             panic!("expected list")
         };
@@ -411,7 +393,8 @@ mod tests {
     #[tokio::test]
     async fn skill_completion() {
         let rope = Rope::from_str("use $rev");
-        let resp = complete(&rope, Position::new(0, 8), &reg(), None)
+        let search = FffFileSearch::default();
+        let resp = complete(&rope, Position::new(0, 8), &reg(), None, &search)
             .await
             .expect("response");
         let CompletionResponse::List(list) = resp else {
@@ -432,5 +415,97 @@ mod tests {
     fn quoting() {
         assert_eq!(maybe_quote("a/b.rs"), "a/b.rs");
         assert_eq!(maybe_quote("a b.rs"), "\"a b.rs\"");
+    }
+
+    #[tokio::test]
+    async fn file_completion_quotes_paths_with_spaces() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("space dir")).unwrap();
+        std::fs::write(tmp.path().join("space dir").join("target file.rs"), "x").unwrap();
+
+        let rope = Rope::from_str("@target");
+        let search = FffFileSearch::default();
+        let resp = complete(
+            &rope,
+            Position::new(0, 7),
+            &reg(),
+            Some(tmp.path()),
+            &search,
+        )
+        .await
+        .expect("response");
+        let CompletionResponse::List(list) = resp else {
+            panic!("expected list")
+        };
+        let item = list
+            .items
+            .iter()
+            .find(|i| i.label.contains("target file.rs"))
+            .expect("file with spaces should appear");
+        match item.text_edit.as_ref().expect("edit") {
+            CompletionTextEdit::Edit(e) => {
+                assert_eq!(e.new_text, "\"space dir/target file.rs\"");
+            }
+            _ => panic!("expected edit"),
+        }
+    }
+
+    #[tokio::test]
+    async fn at_context_sorts_skills_prompts_before_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("review-notes.md"), "x").unwrap();
+        std::fs::write(tmp.path().join("deploy-notes.md"), "x").unwrap();
+
+        let rope = Rope::from_str("@rev");
+        let search = FffFileSearch::default();
+        let resp = complete(
+            &rope,
+            Position::new(0, 4),
+            &reg(),
+            Some(tmp.path()),
+            &search,
+        )
+        .await
+        .expect("response");
+        let CompletionResponse::List(list) = resp else {
+            panic!("expected list")
+        };
+
+        let skill_pos = list
+            .items
+            .iter()
+            .position(|i| i.label == "$review")
+            .expect("skill");
+        let file_pos = list
+            .items
+            .iter()
+            .position(|i| i.kind == Some(CompletionItemKind::FILE))
+            .expect("file");
+        assert!(skill_pos < file_pos, "items were {:?}", list.items);
+
+        let rope = Rope::from_str("@dep");
+        let resp = complete(
+            &rope,
+            Position::new(0, 4),
+            &reg(),
+            Some(tmp.path()),
+            &search,
+        )
+        .await
+        .expect("response");
+        let CompletionResponse::List(list) = resp else {
+            panic!("expected list")
+        };
+        let prompt_pos = list
+            .items
+            .iter()
+            .position(|i| i.label == "/prompts:deploy")
+            .expect("prompt");
+        let file_pos = list
+            .items
+            .iter()
+            .position(|i| i.kind == Some(CompletionItemKind::FILE))
+            .expect("file");
+        assert!(prompt_pos < file_pos, "items were {:?}", list.items);
     }
 }

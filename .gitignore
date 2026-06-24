@@ -5,3 +5,4 @@ editors/vscode/out/
 *.vsix
 editors/zed/extension.wasm
 editors/zed/grammars/
+*.codex
