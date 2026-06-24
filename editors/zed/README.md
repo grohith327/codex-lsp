@@ -1,7 +1,8 @@
 # Codex LSP for Zed
 
 This extension registers `.codex` files in Zed and launches `codex-lsp` over
-stdio.
+stdio. It uses a plain-text Tree-sitter grammar; language features come from
+the LSP.
 
 ## Install as a dev extension
 

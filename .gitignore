@@ -3,3 +3,5 @@
 **/node_modules/
 editors/vscode/out/
 *.vsix
+editors/zed/extension.wasm
+editors/zed/grammars/

@@ -11,6 +11,6 @@ name = "Codex LSP"
 language = "Codex"
 languages = ["Codex"]
 
-[grammars.markdown]
-repository = "https://github.com/tree-sitter-grammars/tree-sitter-markdown"
-rev = "be3e08acfd85bd87d85f41fde74fdcec25f76dbe"
+[grammars.plain]
+repository = "https://github.com/jbr/tree-sitter-plain"
+rev = "5625eece5513ffd25e2e906e697b2994173606ad"
