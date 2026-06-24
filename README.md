@@ -17,11 +17,38 @@ validation.
   (`/prompts:<name>`), with descriptions.
 - **`$skill` completion** — skills discovered from `SKILL.md` files.
 
-## Build
+## Add the binary to your PATH
+
+Build the release binary:
 
 ```sh
 cargo build --release
-# binary at target/release/codex-lsp
+```
+
+Create a stable link somewhere on your `PATH`:
+
+```sh
+mkdir -p ~/.local/bin
+ln -sf "$PWD/target/release/codex-lsp" ~/.local/bin/codex-lsp
+```
+
+If `~/.local/bin` is not already on your `PATH`, add it to your shell config:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Verify that your shell can find the server:
+
+```sh
+which codex-lsp
+```
+
+You can also skip the link and use the absolute path to the binary in your
+editor config:
+
+```sh
+/path/to/codex-lsp/target/release/codex-lsp
 ```
 
 ## LSP Configuration
@@ -90,40 +117,6 @@ the language server binary path in Zed settings:
 ```
 
 See `editors/zed/README.md` for the full Zed workflow.
-
-### Add the binary to your PATH
-
-Build the release binary:
-
-```sh
-cargo build --release
-```
-
-Create a stable link somewhere on your `PATH`:
-
-```sh
-mkdir -p ~/.local/bin
-ln -sf "$PWD/target/release/codex-lsp" ~/.local/bin/codex-lsp
-```
-
-If `~/.local/bin` is not already on your `PATH`, add it to your shell config:
-
-```sh
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Verify that your shell can find the server:
-
-```sh
-which codex-lsp
-```
-
-You can also skip the link and use the absolute path to the binary in your
-editor config:
-
-```sh
-/path/to/codex-lsp/target/release/codex-lsp
-```
 
 ### Neovim
 
