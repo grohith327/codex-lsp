@@ -6,16 +6,7 @@ Codex CLI input box) containing `@file` references, `/slash` commands, and
 `$skill` mentions. Plug it into any LSP-capable editor for completion and
 validation.
 
-## Features (v1)
-
-- **`@` completion** — fuzzy file-path search backed by the Rust `fff-search`
-  engine, with a warm per-root index, `.gitignore` awareness, and `.git`
-  internals excluded. The `@` menu also surfaces codex "plugins" — **skills**
-  (inserted as `$name`) and **custom prompts** (inserted as `/prompts:name`) —
-  mirroring the codex composer.
-- **`/command` completion** — built-in slash commands and custom prompts
-  (`/prompts:<name>`), with descriptions.
-- **`$skill` completion** — skills discovered from `SKILL.md` files.
+<img width="1520" height="1080" alt="codex-lsp-demo" src="https://github.com/user-attachments/assets/d2481f5f-75f8-42a1-98b8-fc2d53a35627" />
 
 ## Add the binary to your PATH
 
