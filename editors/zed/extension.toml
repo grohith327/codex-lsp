@@ -1,0 +1,16 @@
+id = "codex-lsp"
+name = "Codex LSP"
+version = "0.1.0"
+schema_version = 1
+authors = ["codex-lsp contributors"]
+description = "Language support for .codex prompt files backed by codex-lsp."
+repository = "https://github.com/grohith327/codex-lsp"
+
+[language_servers.codex-lsp]
+name = "Codex LSP"
+language = "Codex"
+languages = ["Codex"]
+
+[grammars.markdown]
+repository = "https://github.com/tree-sitter-grammars/tree-sitter-markdown"
+rev = "be3e08acfd85bd87d85f41fde74fdcec25f76dbe"

@@ -59,6 +59,38 @@ set `codexLsp.serverPath` to the absolute path of the release binary:
 
 See `editors/vscode/README.md` for the full VS Code workflow.
 
+### Zed
+
+The Zed extension lives in `editors/zed`. First build `codex-lsp` and put it on
+your `PATH`, then install the Zed wrapper as a dev extension:
+
+```sh
+cargo build --release
+mkdir -p ~/.local/bin
+ln -sf "$PWD/target/release/codex-lsp" ~/.local/bin/codex-lsp
+```
+
+In Zed, run `zed: install dev extension` from the command palette and select
+the `editors/zed` directory. Opening any `.codex` file should then start
+`codex-lsp` automatically.
+
+If Zed cannot find the server because it was launched outside your shell, set
+the language server binary path in Zed settings:
+
+```json
+{
+  "lsp": {
+    "codex-lsp": {
+      "binary": {
+        "path": "/path/to/codex-lsp/target/release/codex-lsp"
+      }
+    }
+  }
+}
+```
+
+See `editors/zed/README.md` for the full Zed workflow.
+
 ### Add the binary to your PATH
 
 Build the release binary:
