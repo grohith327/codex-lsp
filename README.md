@@ -57,7 +57,7 @@ Add `codex-lsp` to your favourite code editor by following the setup below.
 The server speaks LSP over stdio, so your editor needs to launch the
 `codex-lsp` binary for `*.codex` files.
 
-### VS Code
+### <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/vscode/vscode-original.svg" width="20" height="20" alt="VS Code logo" style="vertical-align: text-bottom;"> VS Code
 
 The VS Code extension lives in `editors/vscode`. First make sure the
 `codex-lsp` binary is available by following the setup below, then package and
@@ -86,7 +86,7 @@ set `codexLsp.serverPath` to the absolute path of the release binary:
 
 See `editors/vscode/README.md` for the full VS Code workflow.
 
-### Zed
+### <img src="https://cdn.simpleicons.org/zedindustries/084CCF" width="20" height="20" alt="Zed logo" style="vertical-align: text-bottom;"> Zed
 
 The Zed extension lives in `editors/zed`. First build `codex-lsp` and put it on
 your `PATH`, then install the Zed wrapper as a dev extension:
@@ -118,7 +118,7 @@ the language server binary path in Zed settings:
 
 See `editors/zed/README.md` for the full Zed workflow.
 
-### Neovim
+### <img src="https://cdn.simpleicons.org/neovim/57A143" width="20" height="20" alt="Neovim logo" style="vertical-align: text-bottom;"> Neovim
 
 For Neovim 0.11+, add this to your Neovim config, for example in
 `~/.config/nvim/init.lua`:
