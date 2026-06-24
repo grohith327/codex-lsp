@@ -3,7 +3,7 @@
 A standalone [Language Server](https://microsoft.github.io/language-server-protocol/)
 for **`.codex` files** — free-form prompt text (exactly what you'd type into the
 Codex CLI input box) containing `@file` references, `/slash` commands, and
-`$skill` mentions. Plug it into any LSP-capable editor for completion and
+`@skill` mentions. Plug it into any LSP-capable editor for completion and
 validation.
 
 <img width="1520" height="1080" alt="codex-lsp-demo" src="https://github.com/user-attachments/assets/d2481f5f-75f8-42a1-98b8-fc2d53a35627" />

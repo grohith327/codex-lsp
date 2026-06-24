@@ -13,7 +13,7 @@ use crate::fuzzy::fuzzy_match;
 use crate::slash_command::PROMPTS_CMD_PREFIX;
 use crate::slash_command::built_in_slash_commands;
 
-/// A prefixed token (`@…` or `$…`) located in the document.
+/// A prefixed token (`@…`) located in the document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenSpan {
     /// Text after the prefix character (e.g. `@foo` -> `foo`).
@@ -36,7 +36,6 @@ pub enum CompletionContext {
         content_end: usize,
     },
     File(TokenSpan),
-    Skill(TokenSpan),
 }
 
 /// Adjust `pos` to the nearest valid char boundary at or before it.
@@ -53,7 +52,7 @@ pub fn clamp_to_char_boundary(text: &str, pos: usize) -> usize {
     p
 }
 
-/// Extract the prefixed token (`@`/`$`) the cursor is positioned on, if any.
+/// Extract the prefixed token the cursor is positioned on, if any.
 pub fn current_prefixed_token(
     text: &str,
     cursor_offset: usize,
@@ -152,10 +151,6 @@ pub fn current_at_token(text: &str, cursor: usize) -> Option<TokenSpan> {
     current_prefixed_token(text, cursor, '@', false)
 }
 
-pub fn current_skill_token(text: &str, cursor: usize) -> Option<TokenSpan> {
-    current_prefixed_token(text, cursor, '$', true)
-}
-
 /// If the cursor is within a slash command on the first line, return
 /// `(name, rest)` where `name` excludes the leading `/`.
 pub fn slash_command_under_cursor(first_line: &str, cursor: usize) -> Option<(&str, &str)> {
@@ -200,16 +195,14 @@ pub fn looks_like_slash_prefix(name: &str, rest_after_name: &str, prompt_names: 
 }
 
 /// Classify what the cursor should complete, mirroring the composer precedence:
-/// `@`/`$` tokens take priority over the first-line slash command.
+/// `@` tokens take priority over the first-line slash command.
 pub fn completion_context(
     text: &str,
     cursor: usize,
     prompt_names: &[String],
 ) -> Option<CompletionContext> {
     let file = current_at_token(text, cursor);
-    let skill = current_skill_token(text, cursor);
-
-    if file.is_none() && skill.is_none() {
+    if file.is_none() {
         // Slash commands are recognized at the start of ANY line. (The CLI
         // composer only checks the first line because the whole input is one
         // command, but a `.codex` file is multi-line prose, so a `/command` is
@@ -234,9 +227,6 @@ pub fn completion_context(
         }
         return None;
     }
-    if let Some(span) = skill {
-        return Some(CompletionContext::Skill(span));
-    }
     file.map(CompletionContext::File)
 }
 
@@ -245,7 +235,6 @@ pub fn completion_context(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MentionKind {
     File,
-    Skill,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -256,7 +245,7 @@ pub struct Mention {
     pub end: usize,
 }
 
-/// Find every non-empty `@`/`$` mention in the document (whitespace-delimited).
+/// Find every non-empty `@` mention in the document (whitespace-delimited).
 pub fn scan_mentions(text: &str) -> Vec<Mention> {
     let mut out = Vec::new();
     let mut token_start: Option<usize> = None;
@@ -282,7 +271,6 @@ fn push_mention(text: &str, start: usize, end: usize, out: &mut Vec<Mention>) {
     };
     let kind = match first {
         '@' => MentionKind::File,
-        '$' => MentionKind::Skill,
         _ => return,
     };
     let content_start = start + first.len_utf8();
@@ -348,8 +336,8 @@ mod tests {
     }
 
     #[test]
-    fn skill_lone_dollar_allows_empty() {
-        assert_eq!(q("$", 1, '$', true).as_deref(), Some(""));
+    fn skill_lone_at_allows_empty() {
+        assert_eq!(q("@", 1, '@', true).as_deref(), Some(""));
         // '@' (allow_empty=false) at whitespace boundary would not, but a lone
         // trailing prefix at end-of-text returns empty per the source logic.
     }
@@ -428,19 +416,19 @@ mod tests {
 
     #[test]
     fn scan_mentions_finds_all() {
-        let text = "see @src/main.rs and use $review here";
+        let text = "see @src/main.rs and use @review here";
         let m = scan_mentions(text);
         assert_eq!(m.len(), 2);
         assert_eq!(m[0].kind, MentionKind::File);
         assert_eq!(m[0].query, "src/main.rs");
         assert_eq!(&text[m[0].start..m[0].end], "@src/main.rs");
-        assert_eq!(m[1].kind, MentionKind::Skill);
+        assert_eq!(m[1].kind, MentionKind::File);
         assert_eq!(m[1].query, "review");
     }
 
     #[test]
     fn scan_mentions_ignores_lone_prefix() {
-        assert!(scan_mentions("a @ b $ c").is_empty());
+        assert!(scan_mentions("a @ b $review c").is_empty());
     }
 
     #[test]

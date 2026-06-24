@@ -3,8 +3,8 @@
 //! Rules (per plan §5.4):
 //! * Unknown first-line `/command` -> ERROR (only once it can't be a prefix of
 //!   any known command, to avoid flagging mid-typing).
+//! * `@skill` that exists in the registry -> accepted as a skill mention.
 //! * `@path` that doesn't resolve to an existing file -> WARNING.
-//! * `$skill` not in the registry -> WARNING.
 
 use std::path::Path;
 use std::path::PathBuf;
@@ -40,22 +40,14 @@ pub async fn compute(rope: &Rope, registry: &Registry, doc_dir: Option<&Path>) -
         }
     }
 
-    // File and skill mentions.
+    // `@` mentions can be skills or files. Known skills win; everything else is
+    // treated as a file reference when we know the document directory.
     for m in scan_mentions(&text) {
         match m.kind {
-            MentionKind::Skill => {
-                if !registry.has_skill(&m.query) {
-                    diags.push(diag(
-                        rope,
-                        m.start,
-                        m.end,
-                        DiagnosticSeverity::WARNING,
-                        "unknown-skill",
-                        format!("Unknown skill: ${}", m.query),
-                    ));
-                }
-            }
             MentionKind::File => {
+                if registry.has_skill(&m.query) {
+                    continue;
+                }
                 let Some(dir) = doc_dir else { continue };
                 let resolved = resolve_path(dir, &m.query);
                 if !tokio::fs::try_exists(&resolved).await.unwrap_or(false) {
@@ -143,13 +135,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unknown_skill_is_warning() {
-        let rope = Rope::from_str("use $nope please");
-        let d = compute(&rope, &reg(), None).await;
-        assert_eq!(d.len(), 1);
-        assert_eq!(d[0].severity, Some(DiagnosticSeverity::WARNING));
+    async fn known_at_skill_is_not_a_missing_file_warning() {
+        let tmp = tempfile::tempdir().unwrap();
         assert!(
-            compute(&Rope::from_str("use $review"), &reg(), None)
+            compute(&Rope::from_str("use @review"), &reg(), Some(tmp.path()))
+                .await
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn dollar_skill_is_not_a_skill_diagnostic() {
+        assert!(
+            compute(&Rope::from_str("use $nope please"), &reg(), None)
                 .await
                 .is_empty()
         );

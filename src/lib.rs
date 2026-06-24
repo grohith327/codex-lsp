@@ -1,7 +1,7 @@
 //! codex-lsp: a standalone Language Server for `.codex` prompt files.
 //!
 //! Provides completion and diagnostics for the codex CLI input syntax —
-//! `@file` references, `/slash` commands (incl. `/prompts:…`), and `$skill`
+//! `@file` references, `/slash` commands (incl. `/prompts:…`), and `@skill`
 //! mentions — over stdio, pluggable into any LSP-capable editor.
 
 pub mod backend;

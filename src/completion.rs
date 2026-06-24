@@ -47,10 +47,6 @@ pub async fn complete(
             let range = span_to_range(rope, content_start, content_end);
             command_items(&query, registry, range)
         }
-        CompletionContext::Skill(span) => {
-            let range = span_to_range(rope, span.content_start, span.end);
-            skill_items(&span.query, registry, range)
-        }
         CompletionContext::File(span) => {
             file_items(rope, &span, registry, search_root, file_search).await
         }
@@ -110,36 +106,12 @@ fn command_items(query: &str, registry: &Registry, range: Range) -> Vec<Completi
     scored.into_iter().map(|(_, item)| item).collect()
 }
 
-fn skill_items(query: &str, registry: &Registry, range: Range) -> Vec<CompletionItem> {
-    let mut scored: Vec<(i32, CompletionItem)> = Vec::new();
-    for skill in &registry.skills {
-        if let Some(score) = skill_match_score(skill, query) {
-            scored.push((
-                score,
-                CompletionItem {
-                    label: skill_label(skill),
-                    kind: Some(CompletionItemKind::VALUE),
-                    detail: skill.description.clone(),
-                    filter_text: Some(skill_filter_text(skill)),
-                    sort_text: Some(sort_key(score)),
-                    text_edit: Some(CompletionTextEdit::Edit(TextEdit {
-                        range,
-                        new_text: skill.name.clone(),
-                    })),
-                    ..Default::default()
-                },
-            ));
-        }
-    }
-    scored.sort_by_key(|(s, _)| *s);
-    scored.into_iter().map(|(_, item)| item).collect()
-}
-
 /// `@`-context completions. Codex surfaces "plugins" — skills and custom
 /// prompts — in the `@` menu alongside files, so we list all three: skills
-/// first, then prompts, then file matches. Selecting a skill/prompt rewrites
-/// the whole `@token` into its canonical reference (`$skill` / `/prompts:name`),
-/// so those edits span the leading `@` and their filter text carries it too.
+/// first, then prompts, then file matches. Selecting a skill or prompt rewrites
+/// the whole `@token` into its canonical reference (`@skill` or
+/// `/prompts:name`), so those edits span the leading `@` and their filter text
+/// carries it too.
 async fn file_items(
     rope: &Rope,
     span: &TokenSpan,
@@ -150,7 +122,7 @@ async fn file_items(
     let mut items = Vec::new();
     let whole = span_to_range(rope, span.start, span.end);
 
-    // Skills (e.g. the `pdf-processing` "plugin") -> inserted as `$name`.
+    // Skills (e.g. the `pdf-processing` "plugin") -> inserted as `@name`.
     for skill in &registry.skills {
         if let Some(score) = skill_match_score(skill, &span.query) {
             items.push(CompletionItem {
@@ -165,7 +137,7 @@ async fn file_items(
                 sort_text: Some(format!("0{}", sort_key(score))),
                 text_edit: Some(CompletionTextEdit::Edit(TextEdit {
                     range: whole,
-                    new_text: format!("${} ", skill.name),
+                    new_text: format!("@{} ", skill.name),
                 })),
                 ..Default::default()
             });
@@ -240,7 +212,7 @@ fn skill_label(skill: &crate::registry::Skill) -> String {
     skill
         .display_name
         .clone()
-        .unwrap_or_else(|| format!("${}", skill.name))
+        .unwrap_or_else(|| format!("@{}", skill.name))
 }
 
 fn skill_filter_text(skill: &crate::registry::Skill) -> String {
@@ -333,7 +305,7 @@ mod tests {
 
     #[tokio::test]
     async fn at_context_includes_skills() {
-        // Typing `@rev` must surface the skill (codex's "plugin") as `$review`.
+        // Typing `@rev` must surface the skill and keep the `@` prefix.
         let rope = Rope::from_str("@rev");
         let search = FffFileSearch::default();
         let resp = complete(&rope, Position::new(0, 4), &reg(), None, &search)
@@ -345,10 +317,10 @@ mod tests {
         let item = list
             .items
             .iter()
-            .find(|i| i.label == "$review")
+            .find(|i| i.label == "@review")
             .expect("skill should appear in @ context");
         match item.text_edit.as_ref().expect("edit") {
-            CompletionTextEdit::Edit(e) => assert_eq!(e.new_text, "$review "),
+            CompletionTextEdit::Edit(e) => assert_eq!(e.new_text, "@review "),
             _ => panic!("expected edit"),
         }
     }
@@ -391,24 +363,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skill_completion() {
+    async fn dollar_skill_completion_is_not_special() {
         let rope = Rope::from_str("use $rev");
         let search = FffFileSearch::default();
-        let resp = complete(&rope, Position::new(0, 8), &reg(), None, &search)
-            .await
-            .expect("response");
-        let CompletionResponse::List(list) = resp else {
-            panic!("expected list")
-        };
-        let item = list
-            .items
-            .iter()
-            .find(|i| i.label == "$review")
-            .expect("review");
-        match item.text_edit.as_ref().expect("edit") {
-            CompletionTextEdit::Edit(e) => assert_eq!(e.new_text, "review"),
-            _ => panic!("expected edit"),
-        }
+        let resp = complete(&rope, Position::new(0, 8), &reg(), None, &search).await;
+        assert!(resp.is_none(), "$skill should not trigger skill completion");
     }
 
     #[test]
@@ -474,7 +433,7 @@ mod tests {
         let skill_pos = list
             .items
             .iter()
-            .position(|i| i.label == "$review")
+            .position(|i| i.label == "@review")
             .expect("skill");
         let file_pos = list
             .items
